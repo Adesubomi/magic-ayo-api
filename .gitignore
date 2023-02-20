@@ -1,0 +1,6 @@
+.DS_Store
+.idea
+.fleet
+.vscode
+.env
+trusted.json
