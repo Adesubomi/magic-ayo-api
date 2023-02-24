@@ -1,0 +1,22 @@
+app_name='Magic Money Game'
+app_key=82cfada1cf6276cca0198cb850b56c4916809980914a4f58ed7c63f742fcad01
+
+[database]
+connection='mysql'
+host='localhost'
+port='3306'
+dbName='magic_internet_money'
+user='root'
+password=''
+
+[redis]
+host='localhost'
+port='6379'
+database='0'
+user='root'
+password=''
+
+[sentry]
+dns=''
+debug=''
+release=''
