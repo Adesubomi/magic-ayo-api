@@ -1,7 +1,6 @@
 package http
 
 import (
-	"github.com/Adesubomi/magic-ayo-api/internals/auth/handler"
 	"github.com/Adesubomi/magic-ayo-api/pkg/config"
 	"github.com/go-redis/redis"
 	"github.com/gofiber/fiber/v2"
@@ -15,7 +14,7 @@ type Service struct {
 }
 
 func (s Service) RegisterRoutes() *fiber.App {
-	authHandler := handler.AuthHandler{
+	authHandler := Handler{
 		Config:      s.Config,
 		DbClient:    s.DbClient,
 		RedisClient: s.RedisClient,

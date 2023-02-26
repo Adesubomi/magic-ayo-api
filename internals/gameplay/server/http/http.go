@@ -19,13 +19,16 @@ func (s Service) RegisterRoutes() *fiber.App {
 		RedisClient: s.RedisClient,
 	}
 
-	walletHttp := Handler{
+	gameHttp := Handler{
 		Config:      s.Config,
 		DbClient:    s.DbClient,
 		RedisClient: s.RedisClient,
 	}
 
 	app := fiber.New()
-	app.Get("/", authReg.AuthMiddleware, walletHttp.GetUserWallet)
+	app.Get("/start", authReg.AuthMiddleware, gameHttp.StartGame)
+	app.Get("/pot-pack", authReg.AuthMiddleware, gameHttp.PotPack)
+	app.Get("/abort", authReg.AuthMiddleware, gameHttp.AbortGame)
+	app.Get("/status", authReg.AuthMiddleware, gameHttp.GameStatus)
 	return app
 }

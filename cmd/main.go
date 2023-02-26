@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	authHttp "github.com/Adesubomi/magic-ayo-api/internals/auth/server/http"
+	authHttp "github.com/Adesubomi/magic-ayo-api/internals/user/server/http"
 	walletHttp "github.com/Adesubomi/magic-ayo-api/internals/wallet/server/http"
 	pkgConfig "github.com/Adesubomi/magic-ayo-api/pkg/config"
 	dataPkg "github.com/Adesubomi/magic-ayo-api/pkg/datasource"

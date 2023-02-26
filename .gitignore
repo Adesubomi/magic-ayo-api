@@ -4,3 +4,4 @@
 .vscode
 .env
 trusted.json
+*/**/config.toml

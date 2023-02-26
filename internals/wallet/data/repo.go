@@ -1,4 +1,4 @@
-package handler
+package data
 
 import (
 	configPkg "github.com/Adesubomi/magic-ayo-api/pkg/config"
@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type WalletHandler struct {
+type Repo struct {
 	Config      *configPkg.Config
 	DbClient    *gorm.DB
 	RedisClient *redis.Client
