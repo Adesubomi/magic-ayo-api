@@ -1,12 +1,15 @@
-package cmd
+package main
 
 import (
 	"fmt"
+	aayoHttp "github.com/Adesubomi/magic-ayo-api/internals/aayo/server/http"
 	authHttp "github.com/Adesubomi/magic-ayo-api/internals/user/server/http"
 	walletHttp "github.com/Adesubomi/magic-ayo-api/internals/wallet/server/http"
 	pkgConfig "github.com/Adesubomi/magic-ayo-api/pkg/config"
 	dataPkg "github.com/Adesubomi/magic-ayo-api/pkg/datasource"
+	lnPkg "github.com/Adesubomi/magic-ayo-api/pkg/lightning"
 	logPkg "github.com/Adesubomi/magic-ayo-api/pkg/log"
+	networkPkg "github.com/Adesubomi/magic-ayo-api/pkg/network"
 	"github.com/BurntSushi/toml"
 	"github.com/gofiber/fiber/v2"
 	"log"
@@ -14,8 +17,8 @@ import (
 )
 
 func main() {
-	var config *pkgConfig.Config
-	if _, err := toml.DecodeFile("config.toml", config); err != nil {
+	config := &pkgConfig.Config{}
+	if _, err := toml.DecodeFile("cmd/config.toml", config); err != nil {
 		fmt.Println("Error decoding TOML file:", err)
 		return
 	}
@@ -32,6 +35,21 @@ func main() {
 		os.Exit(-1)
 	}
 
+	lndClient, err := lnPkg.NewLightningClient(config)
+	if lndClient.Connection != nil {
+		defer func(lc *lnPkg.LNDClient) {
+			err := lc.Connection.Close()
+			if err != nil {
+				logPkg.ReportError(err)
+			}
+		}(lndClient)
+	}
+
+	if err != nil {
+		logPkg.ReportError(err)
+		os.Exit(-1)
+	}
+
 	auth := authHttp.Service{
 		Config:      config,
 		DbClient:    dbClient,
@@ -42,14 +60,24 @@ func main() {
 		Config:      config,
 		DbClient:    dbClient,
 		RedisClient: redisClient,
+		LndClient:   lndClient,
+	}
+
+	ayo := aayoHttp.Service{
+		Config:      config,
+		DbClient:    dbClient,
+		RedisClient: redisClient,
 	}
 
 	app := fiber.New()
-	app.Mount("auth", auth.RegisterRoutes())
-	app.Mount("wallets", wallet.RegisterRoutes())
+	app.Use(logPkg.FiberRequestDebug)
+	app.Use(networkPkg.CorsFiberMiddleware)
+	app.Mount("/auth", auth.RegisterRoutes())
+	app.Mount("/wallet", wallet.RegisterRoutes())
+	app.Mount("/aayo", ayo.RegisterRoutes())
 
 	err = app.Listen(fmt.Sprintf(":%v", config.AppPort))
 	if err != nil {
-		log.Fatalf("server connection listen and server failed, error message %s", err.Error())
+		log.Fatalf("server listen failed, %s", err.Error())
 	}
 }

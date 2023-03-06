@@ -29,7 +29,7 @@ func (h Handler) getUserRepo() userData.UserRepo {
 	}
 }
 
-func (h Handler) getAuthRegistry(ctx *fiber.Ctx) *authPkg.Registry {
+func (h Handler) getAuthRegistry() *authPkg.Registry {
 	return &authPkg.Registry{
 		RedisClient: h.RedisClient,
 	}
@@ -62,15 +62,23 @@ func (h Handler) SignUp(ctx *fiber.Ctx) error {
 	user, err := h.getUserRepo().CreateAccount(
 		signupInput.ID,
 		signupInput.Password)
-	if err != nil {
-		return responsePkg.InternalServerError(
+	if err != nil && errors.Is(err, logPkg.DuplicateRecordError) {
+		return responsePkg.UnprocessableEntity(
 			ctx,
-			"Sign up successful.",
-			err)
+			"Sign up failed.",
+			map[string]string{
+				"id": "User ID has already been used",
+			})
+	} else if err != nil {
+		logPkg.ReportError(err)
+		return responsePkg.BadRequest(
+			ctx,
+			"Unexpected error occurred. Sign Up failed",
+		)
 	}
 
 	// generate token and claim
-	userSession, err := h.getAuthRegistry(ctx).
+	userSession, err := h.getAuthRegistry().
 		CreateUserSession(user)
 	if err != nil {
 		return responsePkg.InternalServerError(ctx,
@@ -83,7 +91,7 @@ func (h Handler) SignUp(ctx *fiber.Ctx) error {
 		"Sign up successful.",
 		map[string]interface{}{
 			"user":    user,
-			"session": userSession,
+			"session": userSession.SerializeForResponse(),
 		})
 }
 
@@ -111,31 +119,30 @@ func (h Handler) Login(ctx *fiber.Ctx) error {
 		)
 	}
 
+	credentialsErr := responsePkg.UnprocessableEntity(
+		ctx,
+		"Invalid data supplied",
+		map[string]string{
+			"id": fmt.Sprintf("Invalid ID or password"),
+		},
+	)
 	identifier := strings.ToLower(input.ID)
 	user, err := h.getUserRepo().FindUser(identifier)
 	if err != nil && errors.Is(err, logPkg.RecordNotFoundError) {
-		return responsePkg.NotFound(
-			ctx,
-			"User not found!")
+		return credentialsErr
 	} else if err != nil {
-		return responsePkg.InternalServerError(
-			ctx,
-			"Unable to get user information",
-			err)
+		fmt.Println(" - - error:", err.Error())
+		return credentialsErr
 
 	}
 
 	// match password hash
 	if !utilPkg.BcryptCompare(user.Password, input.Password) {
-		return responsePkg.UnprocessableEntity(
-			ctx,
-			"Invalid data supplied",
-			map[string]string{
-				"id": fmt.Sprintf("Invalid ID or password")})
+		return credentialsErr
 	}
 
 	// generate token and claim
-	userSession, err := h.getAuthRegistry(ctx).
+	userSession, err := h.getAuthRegistry().
 		CreateUserSession(user)
 	if err != nil {
 		return responsePkg.InternalServerError(ctx,
@@ -148,6 +155,6 @@ func (h Handler) Login(ctx *fiber.Ctx) error {
 		"Login successful",
 		map[string]interface{}{
 			"user":    user,
-			"session": userSession,
+			"session": userSession.SerializeForResponse(),
 		})
 }

@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (r Repo) UserWallet(userID string) (*entity.Wallet, error) {
+func (r Repo) GetUserWallet(userID string) (*entity.Wallet, error) {
 	wallet := &entity.Wallet{}
 	walletID := userID + "-" + entity.WalletAsset
 

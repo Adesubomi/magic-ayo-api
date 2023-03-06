@@ -1,11 +1,11 @@
 app_name='Magic Money Game'
-app_key=82cfada1cf6276cca0198cb850b56c4916809980914a4f58ed7c63f742fcad01
+app_key='82cfada1cf6276cca0198cb850b56c4916809980914a4f58ed7c63f742fcad01'
 
 [database]
 connection='mysql'
 host='localhost'
 port='3306'
-dbName='magic_internet_money'
+dbName='qala_dev@magic_internet_money'
 user='root'
 password=''
 
@@ -20,3 +20,9 @@ password=''
 dns=''
 debug=''
 release=''
+
+[lightning]
+url='localhost'
+port='11009'
+macaroon=''
+tls_cert=''

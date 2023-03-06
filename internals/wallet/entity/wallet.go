@@ -7,8 +7,8 @@ const (
 )
 
 type Wallet struct {
-	ID      string
-	UserID  string
-	Asset   string
-	Balance int64 // in sats
+	ID      string `json:"id"`
+	UserID  string `json:"-"`
+	Asset   string `json:"asset"`
+	Balance int64  `json:"balance"` // in sats
 }
