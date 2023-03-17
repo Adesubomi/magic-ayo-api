@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Adesubomi/magic-ayo-api/internals/wallet/data"
+	"github.com/Adesubomi/magic-ayo-api/internals/wallet/entity"
 	authPkg "github.com/Adesubomi/magic-ayo-api/pkg/auth"
 	configPkg "github.com/Adesubomi/magic-ayo-api/pkg/config"
 	lightningPkg "github.com/Adesubomi/magic-ayo-api/pkg/lightning"
@@ -12,14 +13,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"gorm.io/gorm"
-	"log"
+	"time"
 )
 
 type Handler struct {
 	Config      *configPkg.Config
 	DbClient    *gorm.DB
 	RedisClient *redis.Client
-	LndClient   *lightningPkg.LNDClient
+	LNClients   *lightningPkg.LNClients
 }
 
 func (h Handler) getWalletRepo() *data.Repo {
@@ -55,34 +56,137 @@ func (h Handler) GetUserWallet(ctx *fiber.Ctx) error {
 	)
 }
 
-func (h Handler) GenerateInvoiceLNUrl(ctx *fiber.Ctx) error {
-	amount := int64(2000)
+func (h Handler) GenerateInvoice(ctx *fiber.Ctx) error {
+	userSession := authPkg.UserSessionFromFiberCtx(ctx)
+	amount := int64(20)
+	amountMsat := amount * 1000
 	// Create a new invoice
-	invoice := &lnrpc.Invoice{
-		Memo:  "Example Memo",
-		Value: amount,
-	}
 
-	// Generate the payment request URL
-	response, err := h.LndClient.Client.AddInvoice(
+	//Generate the payment request URL
+	response, err := h.LNClients.Receive.Client.AddInvoice(
 		context.Background(),
-		invoice)
+		&lnrpc.Invoice{
+			Memo:      "Ready Gamer ",
+			ValueMsat: amountMsat,
+		})
 	if err != nil {
-		log.Fatalf("Failed to generate payment request URL: %v", err)
+		fmt.Printf("Failed to generate payment request URL: %v\n", err)
+		return responsePkg.BadRequest(ctx, "unable to generate invoice")
 	}
 
-	paymentRequest := response.String()
+	invoice := entity.LNInvoice{
+		UserID:         userSession.User.ID,
+		RequestHash:    string(response.RHash),
+		PaymentRequest: response.GetPaymentRequest(),
+		AddIndex:       response.GetAddIndex(),
+	}
+
+	// create an invoice in the db
 
 	// Print the payment request URL
-	fmt.Printf("Payment Request: %s\n", paymentRequest)
 	return responsePkg.Success(
 		ctx,
-		"Lightning invoice URL",
+		"Lightning Invoice",
 		map[string]interface{}{
-			"lnUrl": paymentRequest,
+			"invoice": map[string]string{
+				"paymentRequest": invoice.PaymentRequest,
+				"amount":         fmt.Sprintf("%v", amount),
+			},
 		})
 }
 
-func (h Handler) GetLNInvoiceStatus(ctx *fiber.Ctx) error {
-	return nil
+func (h Handler) GetInvoiceStatus(ctx *fiber.Ctx) error {
+	lnUrl := ctx.Params("url")
+	paymentRequest, err := h.LNClients.Send.Client.DecodePayReq(
+		context.Background(), &lnrpc.PayReqString{
+			PayReq: lnUrl,
+		})
+	if err != nil {
+		return responsePkg.BadRequest(
+			ctx,
+			"Invalid payment link")
+	}
+
+	fmt.Println(" - - - - - error::", paymentRequest.PaymentHash)
+	invoice, err := h.LNClients.Send.Client.
+		LookupInvoice(
+			context.Background(),
+			&lnrpc.PaymentHash{
+				RHash: []byte(paymentRequest.PaymentHash),
+			})
+	if err != nil {
+		fmt.Println(" - - - - - error::", err.Error())
+		return responsePkg.BadRequest(
+			ctx,
+			"Invoice not found!")
+	}
+
+	return responsePkg.Success(
+		ctx,
+		"Invoice Info",
+		map[string]interface{}{
+			"invoice": map[string]string{
+				"paymentRequest": invoice.PaymentRequest,
+				"amount":         fmt.Sprintf("%v", invoice.ValueMsat),
+			},
+		})
+}
+
+func (h Handler) MakePayment(ctx *fiber.Ctx) error {
+	lnUrl := ctx.Params("ln-url")
+	paymentRequest, err := h.LNClients.Send.Client.DecodePayReq(
+		context.Background(), &lnrpc.PayReqString{
+			PayReq: lnUrl,
+		})
+	if err != nil {
+		return responsePkg.BadRequest(
+			ctx,
+			"Invalid payment link")
+	}
+
+	invoice, err := h.LNClients.Send.Client.
+		LookupInvoice(
+			context.Background(),
+			&lnrpc.PaymentHash{
+				RHash: []byte(paymentRequest.PaymentHash),
+			})
+	if err != nil {
+		return responsePkg.BadRequest(
+			ctx,
+			"Invoice not found!")
+	}
+
+	expiryTime := time.Unix(invoice.CreationDate+invoice.Expiry, 0)
+	if time.Now().After(expiryTime) {
+		return responsePkg.BadRequest(
+			ctx,
+			"Invoice has expired.")
+
+	}
+
+	payment, err := h.LNClients.Send.Client.SendPaymentSync(
+		context.Background(),
+		&lnrpc.SendRequest{
+			PaymentRequest: invoice.PaymentRequest,
+		})
+	if err != nil {
+		return responsePkg.BadRequest(
+			ctx,
+			"Payment failed")
+	} else if payment.PaymentError != "" {
+		fmt.Println("     [✗] payment error:", payment.PaymentError)
+		return responsePkg.BadRequest(
+			ctx,
+			"Error occurred with payment")
+	}
+
+	fmt.Println("  think we've made payment", payment)
+
+	return responsePkg.Success(
+		ctx,
+		"Payment made",
+		map[string]interface{}{
+			"payment": payment,
+		},
+	)
 }

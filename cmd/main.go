@@ -35,19 +35,32 @@ func main() {
 		os.Exit(-1)
 	}
 
-	lndClient, err := lnPkg.NewLightningClient(config)
-	if lndClient.Connection != nil {
-		defer func(lc *lnPkg.LNDClient) {
+	lndSendClient, err := lnPkg.NewSenderLnClient(config)
+	if err != nil {
+		logPkg.ReportError(err)
+		os.Exit(-1)
+	}
+	if lndSendClient.Connection != nil {
+		defer func(lc *lnPkg.LNClient) {
 			err := lc.Connection.Close()
 			if err != nil {
 				logPkg.ReportError(err)
 			}
-		}(lndClient)
+		}(lndSendClient)
 	}
 
+	lndReceiveClient, err := lnPkg.NewRecipientLnClient(config)
 	if err != nil {
 		logPkg.ReportError(err)
 		os.Exit(-1)
+	}
+	if lndReceiveClient.Connection != nil {
+		defer func(lc *lnPkg.LNClient) {
+			err := lc.Connection.Close()
+			if err != nil {
+				logPkg.ReportError(err)
+			}
+		}(lndReceiveClient)
 	}
 
 	auth := authHttp.Service{
@@ -60,7 +73,10 @@ func main() {
 		Config:      config,
 		DbClient:    dbClient,
 		RedisClient: redisClient,
-		LndClient:   lndClient,
+		LNClients: &lnPkg.LNClients{
+			Send:    lndSendClient,
+			Receive: lndReceiveClient,
+		},
 	}
 
 	ayo := aayoHttp.Service{

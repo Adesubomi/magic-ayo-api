@@ -5,7 +5,12 @@ import (
 	"google.golang.org/grpc"
 )
 
-type LNDClient struct {
+type LNClient struct {
 	Connection *grpc.ClientConn
 	Client     lnrpc.LightningClient
+}
+
+type LNClients struct {
+	Send    *LNClient
+	Receive *LNClient
 }

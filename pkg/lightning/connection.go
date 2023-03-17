@@ -13,10 +13,8 @@ import (
 	"path"
 )
 
-func NewLightningClient(config *configPkg.Config) (*LNDClient, error) {
-	fmt.Println("")
-	fmt.Println("  [...] Connecting to LND over gRPC")
-	lndClient := new(LNDClient)
+func newClient(lnConfig configPkg.LightningConfig) (*LNClient, error) {
+	lndClient := new(LNClient)
 
 	usr, err := user.Current()
 	if err != nil {
@@ -26,20 +24,20 @@ func NewLightningClient(config *configPkg.Config) (*LNDClient, error) {
 
 	fmt.Println("    [-] Home directory::", usr.HomeDir)
 
-	tlsCertPath := path.Join(usr.HomeDir, config.Lightning.TlsCert)
-	macaroonPath := path.Join(usr.HomeDir, config.Lightning.Macaroon)
+	tlsCertPath := path.Join(usr.HomeDir, lnConfig.TlsCert)
+	macaroonPath := path.Join(usr.HomeDir, lnConfig.Macaroon)
 	tlsCredentials, err := credentials.NewClientTLSFromFile(tlsCertPath, "")
 	if err != nil {
 		fmt.Println("    [✗] Cannot get node tls credentials:", err)
 	}
-	fmt.Println("    [-] TLS credentials loaded::", config.Lightning.TlsCert)
+	fmt.Println("    [-] TLS credentials loaded::", lnConfig.TlsCert)
 
 	macaroonBytes, err := os.ReadFile(macaroonPath)
 	if err != nil {
 		fmt.Println("    [✗] Cannot read macaroon files:", err)
 		return nil, err
 	}
-	fmt.Println("    [-] Macaroons loaded::", config.Lightning.Macaroon)
+	fmt.Println("    [-] Macaroons loaded::", lnConfig.Macaroon)
 
 	mac := &macaroon.Macaroon{}
 	if err = mac.UnmarshalBinary(macaroonBytes); err != nil {
@@ -56,8 +54,8 @@ func NewLightningClient(config *configPkg.Config) (*LNDClient, error) {
 
 	url := fmt.Sprintf(
 		"%v:%v",
-		config.Lightning.Url,
-		config.Lightning.Port,
+		lnConfig.Url,
+		lnConfig.Port,
 	)
 
 	conn, err := grpc.Dial(url, opts...)
@@ -73,4 +71,16 @@ func NewLightningClient(config *configPkg.Config) (*LNDClient, error) {
 	lndClient.Client = client
 
 	return lndClient, nil
+}
+
+func NewSenderLnClient(config *configPkg.Config) (*LNClient, error) {
+	fmt.Println("")
+	fmt.Println("  [...] Connecting to LND over gRPC - Sender")
+	return newClient(config.LnSendNode)
+}
+
+func NewRecipientLnClient(config *configPkg.Config) (*LNClient, error) {
+	fmt.Println("")
+	fmt.Println("  [...] Connecting to LND over gRPC - Recipient")
+	return newClient(config.LnReceiveNode)
 }

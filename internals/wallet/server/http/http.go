@@ -16,7 +16,7 @@ type Service struct {
 	Config      *configPkg.Config
 	DbClient    *gorm.DB
 	RedisClient *redis.Client
-	LndClient   *lightningPkg.LNDClient
+	LNClients   *lightningPkg.LNClients
 }
 
 func (s Service) RegisterRoutes() *fiber.App {
@@ -29,13 +29,14 @@ func (s Service) RegisterRoutes() *fiber.App {
 		Config:      s.Config,
 		DbClient:    s.DbClient,
 		RedisClient: s.RedisClient,
-		LndClient:   s.LndClient,
+		LNClients:   s.LNClients,
 	}
 
 	app := fiber.New()
 	app.Get("/", authReg.AuthMiddleware, walletHttp.GetUserWallet)
-	app.Post("/make-payment/ln-url", authReg.AuthMiddleware, walletHttp.GenerateInvoiceLNUrl)
-	app.Post("/get-status/ln-url/:url", authReg.AuthMiddleware, walletHttp.GetLNInvoiceStatus)
+	app.Post("/generate-invoice", authReg.AuthMiddleware, walletHttp.GenerateInvoice)
+	app.Get("/get-status/:url", authReg.AuthMiddleware, walletHttp.GetInvoiceStatus)
+	app.Post("/make-payment", authReg.AuthMiddleware, walletHttp.MakePayment)
 	return app
 }
 

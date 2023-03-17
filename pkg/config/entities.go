@@ -31,11 +31,12 @@ type LightningConfig struct {
 }
 
 type Config struct {
-	AppName   string         `toml:"app_name"`
-	AppPort   string         `toml:"app_port"`
-	AppKey    string         `toml:"app_key"`
-	Database  DatabaseConfig `toml:"database"`
-	Redis     RedisConfig    `toml:"redis"`
-	Sentry    SentryConfig   `toml:"sentry"`
-	Lightning LightningConfig
+	AppName       string          `toml:"app_name"`
+	AppPort       string          `toml:"app_port"`
+	AppKey        string          `toml:"app_key"`
+	Database      DatabaseConfig  `toml:"database"`
+	Redis         RedisConfig     `toml:"redis"`
+	Sentry        SentryConfig    `toml:"sentry"`
+	LnSendNode    LightningConfig `toml:"lightning_send"`
+	LnReceiveNode LightningConfig `toml:"lightning_receive"`
 }
